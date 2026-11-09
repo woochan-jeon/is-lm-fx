@@ -1,0 +1,666 @@
+<title>IS-LM-FX 실험실</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&family=Noto+Serif+KR:wght@600;700&family=STIX+Two+Text:ital@1&display=swap">
+<style>
+/* Layout: 상단 모형 탭 3개 · 왼쪽 조작판(외생변수마다 하락·불변·상승) · 오른쪽 그래프와 변화 방향 */
+:root{
+  --bg:#f3f5f7; --panel:#ffffff; --ink:#17212b; --muted:#5a6672; --line:#d8dee4; --grid:#edf0f3;
+  --accent:#0e6274; --accent-soft:#e2f0f3;
+  --is:#c03a1f; --lm:#2456c4; --fx:#7b3cb7; --ife:#17855a; --fe:#8a6d1c; --ghost:#a3acb6;
+  --up:#17855a; --down:#c03a1f; --up-soft:#e3f3ea; --down-soft:#f9e6e1;
+  --f-display:"Noto Serif KR", "Apple SD Gothic Neo", serif;
+  --f-body:"IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, Consolas, monospace;
+  --f-var:"STIX Two Text", "Times New Roman", serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0e1318; --panel:#151c23; --ink:#e5eaef; --muted:#96a2ae; --line:#2a343e; --grid:#1d252d;
+  --accent:#5bbacd; --accent-soft:#16323a;
+  --is:#ff7d5e; --lm:#80a6ff; --fx:#c69cff; --ife:#4fd49b; --fe:#e0c060; --ghost:#5c6773;
+  --up:#4fd49b; --down:#ff7d5e; --up-soft:#173327; --down-soft:#3a1f19; color-scheme:dark; } }
+:root[data-theme="dark"]{
+  --bg:#0e1318; --panel:#151c23; --ink:#e5eaef; --muted:#96a2ae; --line:#2a343e; --grid:#1d252d;
+  --accent:#5bbacd; --accent-soft:#16323a;
+  --is:#ff7d5e; --lm:#80a6ff; --fx:#c69cff; --ife:#4fd49b; --fe:#e0c060; --ghost:#5c6773;
+  --up:#4fd49b; --down:#ff7d5e; --up-soft:#173327; --down-soft:#3a1f19; color-scheme:dark; }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+v,.v{font-family:var(--f-var);font-style:italic;font-size:1.08em}
+.wrap{max-width:1480px;margin:0 auto}
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:14px}
+header.top h1{font-family:var(--f-display);font-size:26px;margin:0;letter-spacing:-.01em}
+header.top p{margin:4px 0 0;color:var(--muted);max-width:72ch}
+
+.tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.tabs button{all:unset;cursor:pointer;padding:9px 16px 10px;font-size:14.5px;color:var(--muted);border-bottom:2.5px solid transparent;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--ink);font-weight:600;border-bottom-color:var(--accent)}
+.tabs button:hover{color:var(--ink)}
+.tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tabs .eq{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);margin-left:8px;font-weight:400}
+
+.app{display:grid;grid-template-columns:330px minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:980px){.app{grid-template-columns:minmax(0,1fr)}}
+
+aside.controls{background:var(--panel);border:1px solid var(--line);border-radius:10px;position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}
+@media (max-width:980px){aside.controls{position:static;max-height:none}}
+.ctl-head{padding:14px 16px 12px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+.ctl-head h2{margin:0;font-size:14px}
+.ctl-head .model{margin:0;font-size:12.5px;color:var(--muted)}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{all:unset;cursor:pointer;text-align:center;padding:7px 4px;font-size:13px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--panel);font-weight:600}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.mode-note{font-size:12px;color:var(--muted);margin:0}
+.btn{font:inherit;font-size:12.5px;padding:6px 10px;border-radius:7px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--panel)}
+.btn.primary:hover{color:var(--panel);filter:brightness(1.08)}
+.grp{border-bottom:1px solid var(--line);padding:10px 16px 12px}
+.grp:last-child{border-bottom:0}
+.grp h3{margin:0 0 6px;font-size:13px;font-weight:600}
+.vrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:4px 0}
+.vrow .nm{font-size:12.5px;color:var(--muted);min-width:0}
+.vrow .nm b{color:var(--ink);font-weight:500;margin-right:5px}
+.tri{display:inline-grid;grid-template-columns:repeat(3,auto);border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.tri button{all:unset;cursor:pointer;font-size:12px;padding:4px 9px;color:var(--muted);text-align:center}
+.tri button+button{border-left:1px solid var(--line)}
+.tri button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.tri button[data-d="1"][aria-pressed="true"]{background:var(--up-soft);color:var(--up);font-weight:600}
+.tri button[data-d="-1"][aria-pressed="true"]{background:var(--down-soft);color:var(--down);font-weight:600}
+.tri button[data-d="0"][aria-pressed="true"]{background:var(--grid);color:var(--ink)}
+
+main{display:flex;flex-direction:column;gap:16px;min-width:0}
+.presets{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.presets span{font-size:12px;color:var(--muted);margin-right:4px;letter-spacing:.04em}
+.chip{font:inherit;font-size:12.5px;padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.chip:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:8px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tile .k{font-size:11.5px;color:var(--muted);letter-spacing:.02em}
+.tile .val{font-size:18px;font-weight:600}
+.tile .note{font-size:11.5px;color:var(--muted)}
+.up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--muted)}
+
+.charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.charts.one{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}
+@media (max-width:860px){.charts,.charts.one{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px 10px;min-width:0}
+.card h2{font-size:14px;margin:0;font-weight:600}
+.card .sub{font-size:12px;color:var(--muted);margin:2px 0 4px}
+.card svg{width:100%;height:auto;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:11.5px;color:var(--muted);margin-top:2px}
+.legend i{display:inline-block;width:16px;height:0;border-top:2px solid;vertical-align:middle;margin-right:5px}
+.legend i.dash{border-top-style:dashed}
+
+svg text{font-family:var(--f-body);fill:var(--muted);font-size:11px}
+svg .ax{stroke:var(--muted);stroke-width:1}
+svg .ghost{stroke:var(--ghost);stroke-width:1.6;stroke-dasharray:5 4;fill:none}
+svg .cur{stroke-width:2.4;fill:none}
+svg .guide{stroke:var(--muted);stroke-width:.8;stroke-dasharray:2 3;fill:none;opacity:.8}
+svg .lbl{font-family:var(--f-var);font-style:italic;font-size:13px}
+svg .mk{font-family:var(--f-var);font-style:italic;font-size:12.5px;fill:var(--ink)}
+svg .pt-a{fill:var(--panel);stroke:var(--ghost);stroke-width:2}
+svg .pt-b{fill:var(--ink);stroke:var(--panel);stroke-width:1.5}
+svg .ptl{font-family:var(--f-var);font-style:italic;font-size:13px;fill:var(--ink);font-weight:700}
+svg .note{font-size:11px;fill:var(--ink)}
+
+.mech ul{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.mech li{line-height:1.6}
+.chain{font-family:var(--f-mono);font-size:12.5px;background:var(--accent-soft);padding:1px 6px;border-radius:5px;display:inline;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.mech .tag{font-size:11px;color:var(--muted);margin-left:4px}
+.res-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+.res-table th,.res-table td{padding:6px;border-bottom:1px solid var(--line);text-align:left}
+.res-table td:last-child,.res-table th:last-child{text-align:right;font-weight:600}
+.res-table th{font-weight:500;color:var(--muted);font-size:11.5px}
+
+.timebar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:6px 0 4px}
+.timebar input{flex:1 1 220px;accent-color:var(--accent)}
+.timebar output{font-size:12.5px;min-width:10ch}
+.paths{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:8px}
+.paths figure{margin:0}
+.paths figcaption{font-size:12px;color:var(--muted)}
+.ovs{font-size:13px;margin:8px 0 0}
+.eqs{font-family:var(--f-mono);font-size:12.5px;line-height:1.9;overflow-x:auto;white-space:nowrap}
+.eqs .c{color:var(--muted);display:inline-block;min-width:7em;font-family:var(--f-body)}
+footer{margin-top:18px;font-size:12px;color:var(--muted)}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <div>
+    <h1>IS-LM-FX 실험실</h1>
+    <p>외생변수마다 상승·불변·하락만 고르면 곡선이 어느 쪽으로 움직이고 내생변수가 어떻게 변하는지 보여줍니다. 회색 점선은 처음 균형 <v>A</v>, 색 실선은 새 균형 <v>B</v>입니다.</p>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="모형 선택">
+  <button type="button" role="tab" id="tab-keynes" data-view="keynes" aria-selected="true">케인즈 기본 모형<span class="eq">Y = D</span></button>
+  <button type="button" role="tab" id="tab-money" data-view="money" aria-selected="false">단기 화폐시장 모형<span class="eq">Mˢ/P = L(i,Y)</span></button>
+  <button type="button" role="tab" id="tab-full" data-view="full" aria-selected="false">IS-LM-FX 모형<span class="eq">세 시장 동시 균형</span></button>
+</nav>
+
+<div class="app">
+  <aside class="controls" aria-label="외생변수 조작판">
+    <div class="ctl-head">
+      <h2 id="ctl-title"></h2>
+      <p class="model" id="ctl-model"></p>
+      <div class="seg" role="group" aria-label="변화의 성격" id="modeseg">
+        <button type="button" id="mode-temp" aria-pressed="true">일시적 변화</button>
+        <button type="button" id="mode-perm" aria-pressed="false">영구적 변화</button>
+      </div>
+      <p class="mode-note" id="mode-note"></p>
+      <div><button class="btn" type="button" id="btn-reset">모두 불변으로</button></div>
+    </div>
+    <div id="groups"></div>
+  </aside>
+
+  <main>
+    <div class="presets" id="presets"></div>
+    <section class="tiles" id="tiles" aria-label="내생변수의 변화 방향"></section>
+
+    <!-- 케인즈 기본 모형 -->
+    <section class="charts one" data-only="keynes">
+      <article class="card">
+        <h2>생산물시장의 단기균형</h2>
+        <p class="sub">45° 선 <v>Y</v>=<v>D</v>와 총수요곡선 <v>D</v>의 교점이 균형총생산입니다. 이자율 <v>i</v>와 환율 <v>E</v>는 주어진 외생변수입니다.</p>
+        <div id="k-keynes"></div>
+        <div class="legend"><span><i style="border-color:var(--is)"></i>D (새)</span><span><i class="dash" style="border-color:var(--ghost)"></i>D (처음)</span><span><i class="dash" style="border-color:var(--muted)"></i>Y = D</span></div>
+      </article>
+      <article class="card">
+        <h2>균형으로의 조정 과정</h2>
+        <div id="k-adjust"></div>
+      </article>
+    </section>
+
+    <!-- 단기 화폐시장 모형 -->
+    <section class="charts one" data-only="money">
+      <article class="card">
+        <h2>화폐시장의 단기균형</h2>
+        <p class="sub">수직인 실질화폐공급 (<v>M</v>/<v>P</v>)<sup>s</sup>와 우하향하는 실질화폐수요 <v>L</v>(<v>i</v>,<v>Y</v>)가 균형이자율을 결정합니다. 총소득 <v>Y</v>와 물가 <v>P</v>는 주어진 외생변수입니다.</p>
+        <div id="m-money"></div>
+        <div class="legend"><span><i style="border-color:var(--lm)"></i>(M/P)ˢ, L(i,Y) (새)</span><span><i class="dash" style="border-color:var(--ghost)"></i>처음</span></div>
+      </article>
+      <article class="card">
+        <h2>균형으로의 조정 과정</h2>
+        <div id="m-adjust"></div>
+      </article>
+    </section>
+
+    <!-- IS-LM-FX -->
+    <section class="charts" data-only="full">
+      <article class="card">
+        <h2>IS-LM</h2>
+        <p class="sub">IS는 생산물시장, LM은 화폐시장의 균형. 세로선 <v>FE</v>는 잠재총생산 <v>Y<sub>n</sub></v>입니다.</p>
+        <div id="f-islm"></div>
+        <div class="legend"><span><i style="border-color:var(--is)"></i>IS</span><span><i style="border-color:var(--lm)"></i>LM</span><span><i style="border-color:var(--fe)"></i>FE</span><span><i class="dash" style="border-color:var(--ghost)"></i>처음 IS·LM</span></div>
+      </article>
+      <article class="card">
+        <h2>외환시장 FX</h2>
+        <p class="sub">원화예금 수익률 <v>i</v>(수평선)와 달러예금 기대수익률 <v>i<sub>f</sub><sup>e</sup></v> = <v>i<sub>f</sub></v> + (<v>E<sup>e</sup></v>−<v>E</v>)/<v>E</v>의 교점이 균형환율입니다.</p>
+        <div id="f-fx"></div>
+        <div class="legend"><span><i style="border-color:var(--fx)"></i>i (원화예금)</span><span><i style="border-color:var(--ife)"></i>i<sub>f</sub><sup>e</sup> (달러예금)</span><span><i class="dash" style="border-color:var(--ghost)"></i>처음</span></div>
+      </article>
+      <article class="card">
+        <h2>생산물시장 (케인즈 기본 모형)</h2>
+        <p class="sub">새 균형의 <v>i</v>, <v>E</v>에서 그린 총수요곡선입니다.</p>
+        <div id="f-keynes"></div>
+      </article>
+      <article class="card">
+        <h2>화폐시장</h2>
+        <p class="sub">새 균형의 <v>Y</v>, <v>P</v>에서 그린 실질화폐수요·공급입니다.</p>
+        <div id="f-money"></div>
+      </article>
+    </section>
+
+    <section class="charts">
+      <article class="card mech">
+        <h2>무엇이 바뀌었고 왜 그런가</h2>
+        <ul id="mech"></ul>
+      </article>
+      <article class="card">
+        <h2>처음 균형 A → 새 균형 B</h2>
+        <table class="res-table" id="restab"></table>
+      </article>
+    </section>
+
+    <article class="card" data-only="full">
+      <h2>시간 경로와 장기 조정 (물가 조정, 환율 오버슈팅)</h2>
+      <p class="sub" id="time-sub"></p>
+      <div class="timebar">
+        <button class="btn primary" type="button" id="btn-play">▶ 조정 과정 재생</button>
+        <label for="tslider" style="font-size:12.5px;color:var(--muted)">위 그래프가 보여줄 시점</label>
+        <input type="range" id="tslider" min="0" max="45" step="1" value="5">
+        <output id="tout" for="tslider"></output>
+      </div>
+      <div class="paths" id="paths"></div>
+      <div class="ovs" id="ovs"></div>
+    </article>
+
+    <article class="card">
+      <h2>모형식</h2>
+      <div class="eqs" id="eqs"></div>
+    </article>
+  </main>
+</div>
+<footer>그래프는 함수 관계(부호와 방향)를 지키는 예시 모형으로 그렸습니다. 물가는 단기에 고정되고, IS-LM-FX의 시간 경로에서만 총생산과 잠재총생산의 차이에 따라 조정됩니다. 경상수지는 실질환율의 물량효과가 금액효과보다 크다고 가정합니다.</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+/* 내부 예시 모형 (화면에는 방향만 표시). A점: Y=Yn=1000, i=5%, E=1,100, q=1.1, CA=0 */
+const BASE={ G:200,T:200,Ca:120,Ia:225,dCA:0,Yf:1000, c:0.6,m:0.15,b:5,x:300,n:0.1,
+  M:500000,P:1000,dL:0,k:0.6,h:20, iF:5,Ee:1100,Pf:1.00, Yn:1000,speed:0.4,
+  i:5, E:1100, Y:1000 };
+const CA0=-310;
+
+/* 변수 정의: [이름, 기호, 방식, 크기] */
+const V={
+  G:["정부구매","<v>G</v>","add",50],
+  T:["조세 − 정부이전지출","<v>T</v>","add",50],
+  Ca:["독립소비지출","<v>C<sub>A</sub></v>","add",40],
+  Ia:["독립투자지출","<v>I<sub>A</sub></v>","add",40],
+  Yf:["해외소득","<v>Y<sub>f</sub></v>","add",300],
+  dCA:["경상수지의 외생적 변화","<v>CA</v>","add",50],
+  i:["이자율","<v>i</v>","add",1.5],
+  E:["명목환율","<v>E</v>","mul",0.08],
+  P:["국내물가","<v>P</v>","mul",0.08],
+  Pf:["해외물가","<v>P<sub>f</sub></v>","mul",0.08],
+  M:["통화공급","<v>M<sup>s</sup></v>","mul",0.15],
+  Y:["총소득(총생산)","<v>Y</v>","add",150],
+  dL:["실질화폐수요의 외생적 변화","(<v>M</v>/<v>P</v>)<sup>d</sup>","add",40],
+  iF:["해외이자율","<v>i<sub>f</sub></v>","add",1.5],
+  Ee:["기대환율","<v>E<sup>e</sup></v>","mul",0.08],
+};
+
+const VIEWS={
+  keynes:{ title:"케인즈 기본 모형",
+    model:"총수요 D = C(Y−T) + I(i) + G + CA(EP_f/P, Y−T), 균형 Y = D. 내생변수: 균형총생산 Y",
+    sizes:{i:5, E:0.12, P:0.12, Pf:0.12, Ca:60, Ia:60, dCA:60},
+    groups:[["재정정책",["G","T"]],["민간 독립지출",["Ca","Ia"]],["경상수지 관련",["Yf","dCA","Pf"]],["화폐·외환시장에서 주어지는 값",["i","E","P"]]],
+    presets:[["정부구매 증가",{G:1}],["조세 감소",{T:-1}],["이자율 하락",{i:-1}],["경상수지의 외생적 감소",{dCA:-1}],["명목환율 상승",{E:1}]] },
+  money:{ title:"단기 화폐시장 모형",
+    model:"실질화폐공급 (M/P)ˢ = Mˢ/P, 실질화폐수요 (M/P)ᵈ = L(i,Y). 내생변수: 균형 명목이자율 i",
+    groups:[["화폐공급",["M","P"]],["화폐수요",["Y","dL"]]],
+    presets:[["확장적 통화정책",{M:1}],["긴축적 통화정책",{M:-1}],["총소득 증가",{Y:1}],["화폐수요의 외생적 증가",{dL:1}],["물가 상승",{P:1}]] },
+  full:{ title:"IS-LM-FX 모형",
+    model:"생산물·화폐·외환시장의 동시 균형. 내생변수: 균형 Y, i, E",
+    groups:[["재정정책",["G","T"]],["민간 독립지출",["Ca","Ia"]],["경상수지 관련",["Yf","dCA","Pf"]],["화폐시장",["M","dL","P"]],["외환시장",["iF","Ee"]]],
+    presets:[["통화공급 증가",{M:1},"temp"],["정부구매 증가",{G:1},"temp"],["조세 감소",{T:-1},"temp"],["영구적 통화공급 증가",{M:1},"perm"],["해외이자율 상승",{iF:1},"temp"],["경상수지의 외생적 감소",{dCA:-1},"temp"],["화폐수요의 외생적 증가",{dL:1},"temp"]] },
+};
+const DIRS={}; Object.keys(VIEWS).forEach(v=>{ DIRS[v]={}; VIEWS[v].groups.forEach(g=>g[1].forEach(k=>DIRS[v][k]=0)); });
+let view="keynes", mode="temp", tView=5;
+const T0=5, TEMP_END=15, NT=46;
+const ref={...BASE};
+let p={...BASE};
+const dir=()=>DIRS[view];
+function applyDirs(){
+  p={...BASE};
+  const ov=VIEWS[view].sizes||{};
+  Object.entries(dir()).forEach(([k,d])=>{ if(!d) return; const [, , how, s0]=V[k]; const size= k in ov ? ov[k] : s0; p[k]= how==="mul"? BASE[k]*(1+d*size) : BASE[k]+d*size; });
+}
+
+/* ───── 모형 ───── */
+function EeEff(par){ return mode==="perm" ? par.Ee*par.M/ref.M : par.Ee; }
+function fxE(i,iF,Ee){ return Ee/(1+(i-iF)/100); }
+function comps(par,P,E,i,Y){
+  const q=E*par.Pf/P, Yd=Y-par.T, C=par.Ca+par.c*Yd, I=par.Ia-par.b*i;
+  const CA=CA0+par.dCA+par.x*q+par.n*par.Yf-par.m*Yd;
+  return {E,q,C,I,G:par.G,CA,D:C+I+par.G+CA};
+}
+function autonomous(par,P,E,i){ const q=E*par.Pf/P;
+  return par.Ca-par.c*par.T+par.Ia-par.b*i+par.G+CA0+par.dCA+par.x*q+par.n*par.Yf+par.m*par.T; }
+// 케인즈 기본 모형: i, E 외생
+function solveKeynes(par){ const Y=autonomous(par,par.P,par.E,par.i)/(1-par.c+par.m);
+  return {Y,i:par.i,P:par.P,par,...comps(par,par.P,par.E,par.i,Y),Mr:par.M/par.P}; }
+// 단기 화폐시장 모형: Y 외생
+function solveMoney(par){ const Mr=par.M/par.P; const i=(par.k*par.Y+par.dL-Mr)/par.h;
+  return {Y:par.Y,i,P:par.P,Mr,par,Ld:par.k*par.Y+par.dL}; }
+// IS-LM-FX
+function Yis(par,P,Ee,i){ return autonomous(par,P,fxE(i,par.iF,Ee),i)/(1-par.c+par.m); }
+function iLM(par,P,Y){ return (par.k*Y+par.dL-par.M/P)/par.h; }
+function solveFull(par,P,Ee){
+  let lo=-40,hi=80;
+  for(let k=0;k<90;k++){ const mid=(lo+hi)/2; if(mid-iLM(par,P,Yis(par,P,Ee,mid))>0) hi=mid; else lo=mid; }
+  const i=(lo+hi)/2, Y=Yis(par,P,Ee,i);
+  return {i,Y,P,Ee,par,...comps(par,P,fxE(i,par.iF,Ee),i,Y),Mr:par.M/P};
+}
+function longRunP(par,Ee){ let lo=par.P/20,hi=par.P*20;
+  for(let k=0;k<90;k++){ const mid=Math.sqrt(lo*hi); if(solveFull(par,mid,Ee).Y>par.Yn) lo=mid; else hi=mid; }
+  return Math.sqrt(lo*hi); }
+function simulate(){
+  const out=[]; let P=ref.P;
+  for(let t=0;t<NT;t++){
+    let par,Ee;
+    if(t<T0){ par=ref; Ee=EeEff(ref); P=ref.P; }
+    else if(mode==="temp" && t>=TEMP_END){ par=ref; Ee=EeEff(ref); if(t===TEMP_END) P=ref.P; }
+    else { par=p; Ee=EeEff(p); if(t===T0) P=p.P; }
+    if(mode==="perm" && t===NT-1) P=longRunP(p,Ee);   // 마지막 시점은 정확한 장기균형
+    const s=solveFull(par,P,Ee); s.t=t; out.push(s);
+    if(mode==="perm" && t>=T0) P=P*(1+p.speed*(s.Y-par.Yn)/par.Yn);
+  }
+  return out;
+}
+
+/* ───── 조작판 ───── */
+const $=s=>document.querySelector(s);
+function buildControls(){
+  const vw=VIEWS[view];
+  $("#ctl-title").textContent=vw.title+"의 외생변수";
+  $("#ctl-model").textContent=vw.model;
+  $("#modeseg").hidden = view!=="full"; $("#mode-note").hidden = view!=="full";
+  $("#groups").innerHTML=vw.groups.map(([gt,keys])=>`<div class="grp"><h3>${gt}</h3>`+keys.map(k=>{
+    const [name,sym]=V[k];
+    return `<div class="vrow"><span class="nm" id="nm-${k}"><b>${sym}</b>${name}</span>
+      <span class="tri" role="group" aria-labelledby="nm-${k}">
+      <button type="button" data-k="${k}" data-d="-1">▼ 하락</button><button type="button" data-k="${k}" data-d="0">불변</button><button type="button" data-k="${k}" data-d="1">▲ 상승</button></span></div>`;
+  }).join("")+`</div>`).join("");
+  $("#presets").innerHTML=`<span>예시</span>`+vw.presets.map((pr,j)=>`<button class="chip" type="button" data-pre="${j}">${pr[0]}</button>`).join("");
+  document.querySelectorAll("[data-only]").forEach(el=>el.hidden = el.dataset.only!==view);
+  document.querySelectorAll(".tabs button").forEach(b=>b.setAttribute("aria-selected", b.dataset.view===view));
+}
+function syncControls(){
+  document.querySelectorAll(".tri button").forEach(b=>b.setAttribute("aria-pressed", dir()[b.dataset.k]===+b.dataset.d));
+  $("#mode-temp").setAttribute("aria-pressed",mode==="temp");
+  $("#mode-perm").setAttribute("aria-pressed",mode==="perm");
+}
+
+/* ───── SVG 도우미 (수치 눈금 없이 Y₀, Y₁ 식으로 표기) ───── */
+let uid=0;
+function range(dlo,dhi,vals,padFrac){
+  const fin=vals.filter(Number.isFinite);
+  let lo=Math.min(dlo,...fin), hi=Math.max(dhi,...fin); const pad=(hi-lo)*(padFrac||0.08);
+  if(Math.min(...fin)<dlo) lo-=pad; if(Math.max(...fin)>dhi) hi+=pad; return [lo,hi];
+}
+function frame(o){
+  const W=o.W||460,H=o.H||310,m={l:o.ml||62,r:o.mr||18,t:16,b:o.mb||42};
+  const X=v=>m.l+(v-o.xr[0])/(o.xr[1]-o.xr[0])*(W-m.l-m.r);
+  const Y=v=>H-m.b-(v-o.yr[0])/(o.yr[1]-o.yr[0])*(H-m.t-m.b);
+  const id="clip"+(++uid);
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${o.label}"><defs><clipPath id="${id}"><rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}"/></clipPath></defs>`;
+  s+=`<line class="ax" x1="${m.l}" x2="${W-m.r}" y1="${H-m.b}" y2="${H-m.b}"/><line class="ax" x1="${m.l}" x2="${m.l}" y1="${m.t}" y2="${H-m.b}"/>`;
+  if(o.xl) s+=`<text class="lbl" x="${W-m.r}" y="${H-m.b+16}" text-anchor="end">${o.xl}</text>`;
+  if(o.yl) s+=`<text class="lbl" x="${m.l+6}" y="${m.t+2}" dominant-baseline="hanging">${o.yl}</text>`;
+  let body="", xm=[], ym=[];
+  return {X,Y,m,W,H,
+    path(pts,cls,color,extra){ const d=pts.filter(q=>Number.isFinite(q[0])&&Number.isFinite(q[1])).map((q,j)=>(j?"L":"M")+X(q[0]).toFixed(1)+" "+Y(q[1]).toFixed(1)).join(""); body+=`<path clip-path="url(#${id})" class="${cls}" d="${d}" ${color?`style="stroke:${color}"`:""} ${extra||""}/>`; },
+    raw(str,clip){ body+=clip?`<g clip-path="url(#${id})">${str}</g>`:str; },
+    guide(x,y){ body+=`<path class="guide" clip-path="url(#${id})" d="M${X(x)} ${Y(y)}V${H-m.b}M${X(x)} ${Y(y)}H${m.l}"/>`; },
+    point(x,y,lab,kind,dx,dy){ const cx=X(x),cy=Y(y); if(cx<m.l-1||cx>W-m.r+1||cy<m.t-1||cy>H-m.b+1) return;
+      body+=`<circle class="${kind==="a"?"pt-a":"pt-b"}" cx="${cx}" cy="${cy}" r="4.5"/><text class="ptl" x="${cx+(dx||7)}" y="${cy+(dy||-7)}">${lab}</text>`; },
+    tag(x,y,txt,color,anchor){ const cx=Math.min(Math.max(X(x),m.l+4),W-m.r-2), cy=Math.min(Math.max(Y(y),m.t+10),H-m.b-4);
+      body+=`<text class="lbl" x="${cx}" y="${cy}" text-anchor="${anchor||"start"}" style="fill:${color}">${txt}</text>`; },
+    xmark(v,t){ xm.push([X(v),t]); }, ymark(v,t){ ym.push([Y(v),t]); },
+    end(){
+      xm.sort((a,b)=>a[0]-b[0]); let last=-1e9,row=0;
+      xm.forEach(([x,t])=>{ row=(x-last<34)?row+1:0; last=x; body+=`<text class="mk" x="${x}" y="${H-m.b+15+row*13}" text-anchor="middle">${t}</text>`; });
+      ym.sort((a,b)=>a[0]-b[0]); last=-1e9; let col=0;
+      ym.forEach(([y,t])=>{ col=(y-last<13)?col+1:0; last=y; body+=`<text class="mk" x="${m.l-6-col*30}" y="${y+4}" text-anchor="end">${t}</text>`; });
+      return s+body+"</svg>"; }
+  };
+}
+const css=n=>`var(--${n})`;
+const same=(a,b)=>Math.abs(a-b)<1e-6*Math.max(1,Math.abs(a));
+function marks(f,moved,ax,av,bv,name){ const fn=ax==="x"?f.xmark:f.ymark; fn(av,name+"₀"); if(moved&&!same(av,bv)) fn(bv,name+"₁"); }
+
+/* ───── 그래프 ───── */
+function drawKeynes(A,B,sel,zoom){
+  let xr=range(700,1300,[A.Y,B.Y],0.1);
+  if(zoom){ const c=(A.Y+B.Y)/2, half=Math.max(120,Math.abs(B.Y-A.Y)*0.9); xr=[c-half,c+half]; }  // 변화가 잘 보이도록 확대
+  const yr=xr;
+  const f=frame({xr,yr,label:"케인즈 기본 모형 그래프",xl:"Y",yl:"D"});
+  const Dline=s=>{ const sl=s.par.c-s.par.m, D0=s.D-sl*s.Y; return [[xr[0],D0+sl*xr[0]],[xr[1],D0+sl*xr[1]]]; };
+  f.path([[xr[0],xr[0]],[xr[1],xr[1]]],"guide","",'style="stroke-dasharray:4 3;opacity:1"');
+  f.tag(xr[1]-10,xr[1]-14,"Y = D",css("muted"),"end");
+  const moved=!same(A.Y,B.Y)||!same(A.D,B.D);
+  if(moved) f.path(Dline(A),"ghost");
+  f.path(Dline(B),"cur",css("is"));
+  if(moved && Math.abs(B.Y-A.Y)>1){
+    const sl=B.par.c-B.par.m, Dn=B.D-sl*B.Y+sl*A.Y, Iu=A.Y-Dn;
+    f.raw(`<path d="M${f.X(A.Y)+5} ${f.Y(A.Y)}H${f.X(A.Y)+9}V${f.Y(Dn)}H${f.X(A.Y)+5}" style="fill:none;stroke:var(--ink);stroke-width:1"/>`,true);
+    f.tag(A.Y,(A.Y+Dn)/2,`  I<tspan baseline-shift="sub" font-size="9">u</tspan> ${Iu<0?"<":">"} 0`,css("ink"));
+  }
+  if(moved){ f.guide(A.Y,A.Y); f.point(A.Y,A.Y,"A","a",-18,14); }
+  f.guide(B.Y,B.Y); f.point(B.Y,B.Y,moved?"B":"A","b");
+  marks(f,moved,"x",A.Y,B.Y,"Y"); marks(f,moved,"y",A.Y,B.Y,"D");
+  $(sel).innerHTML=f.end();
+}
+function drawMoney(A,B,sel,showGap){
+  const xr=range(300,700,[A.Mr,B.Mr,A.Ld-A.par.h*A.i,B.Ld-B.par.h*A.i],0.1), yr=range(0,10,[A.i,B.i],0.15);
+  const f=frame({xr,yr,label:"화폐시장 그래프",xl:"M/P",yl:"i"});
+  const Lc=s=>[[s.Ld-s.par.h*yr[0],yr[0]],[s.Ld-s.par.h*yr[1],yr[1]]];
+  const mS=!same(A.Mr,B.Mr), mD=!same(A.Ld,B.Ld);
+  if(mS) f.path([[A.Mr,yr[0]],[A.Mr,yr[1]]],"ghost");
+  if(mD) f.path(Lc(A),"ghost");
+  f.path([[B.Mr,yr[0]],[B.Mr,yr[1]]],"cur",css("lm"));
+  f.path(Lc(B),"cur",css("lm"),'style="stroke:var(--lm);opacity:.75"');
+  f.tag(B.Mr,yr[1]-(yr[1]-yr[0])*0.05,"  (M/P)ˢ",css("lm"));
+  const il=yr[0]+(yr[1]-yr[0])*0.12; f.tag(B.Ld-B.par.h*il,il,"  L(i,Y)",css("lm"));
+  const moved=mS||mD;
+  if(showGap && moved){ // 원래 이자율 i₀에서의 초과공급/초과수요
+    const xd=B.Ld-B.par.h*A.i, xs=B.Mr, yy=f.Y(A.i)+9;
+    if(Math.abs(f.X(xd)-f.X(xs))>8){
+      f.raw(`<path d="M${f.X(Math.min(xd,xs))} ${yy-4}V${yy}H${f.X(Math.max(xd,xs))}V${yy-4}" style="fill:none;stroke:var(--ink);stroke-width:1"/>
+        <text class="note" x="${(f.X(xd)+f.X(xs))/2}" y="${yy+13}" text-anchor="middle">${xs>xd?"초과공급":"초과수요"}</text>`,true);
+    }
+  }
+  if(moved){ f.guide(A.Mr,A.i); f.point(A.Mr,A.i,"A","a",-16,-6); }
+  f.guide(B.Mr,B.i); f.point(B.Mr,B.i,moved?"B":"A","b");
+  if(!mS) f.xmark(B.Mr,"M/P"); else { f.xmark(A.Mr,"(M/P)₀"); f.xmark(B.Mr,"(M/P)₁"); }
+  marks(f,moved,"y",A.i,B.i,"i");
+  $(sel).innerHTML=f.end();
+}
+function drawISLM(A,B,sel){
+  const xr=range(700,1300,[A.Y,B.Y,B.par.Yn],0.1), yr=range(0,10,[A.i,B.i],0.15);
+  const f=frame({xr,yr,label:"IS-LM 그래프",xl:"Y",yl:"i"});
+  const ISc=s=>{ const pts=[]; for(let k=0;k<=60;k++){ const i=yr[0]-1+(yr[1]-yr[0]+2)*k/60; pts.push([Yis(s.par,s.P,s.Ee,i),i]); } return pts; };
+  const LMc=s=>[[xr[0]-50,iLM(s.par,s.P,xr[0]-50)],[xr[1]+50,iLM(s.par,s.P,xr[1]+50)]];
+  const isM=!same(Yis(A.par,A.P,A.Ee,5),Yis(B.par,B.P,B.Ee,5)), lmM=!same(iLM(A.par,A.P,1000),iLM(B.par,B.P,1000));
+  f.path([[B.par.Yn,yr[0]],[B.par.Yn,yr[1]]],"cur",css("fe"),'style="stroke:var(--fe);stroke-width:1.4"');
+  f.tag(B.par.Yn,yr[1]-(yr[1]-yr[0])*0.04," FE",css("fe"));
+  if(isM) f.path(ISc(A),"ghost"); if(lmM) f.path(LMc(A),"ghost");
+  f.path(ISc(B),"cur",css("is")); f.path(LMc(B),"cur",css("lm"));
+  const il=yr[0]+(yr[1]-yr[0])*0.1; f.tag(Yis(B.par,B.P,B.Ee,il),il,"  IS",css("is"));
+  const yl=xr[1]-(xr[1]-xr[0])*0.04; f.tag(yl,iLM(B.par,B.P,yl)-0.035*(yr[1]-yr[0]),"LM",css("lm"),"end");
+  const moved=isM||lmM;
+  if(moved){ f.guide(A.Y,A.i); f.point(A.Y,A.i,"A","a",-16,-6); }
+  f.guide(B.Y,B.i); f.point(B.Y,B.i,moved?"B":"A","b");
+  marks(f,moved,"x",A.Y,B.Y,"Y"); marks(f,moved,"y",A.i,B.i,"i");
+  $(sel).innerHTML=f.end();
+}
+function drawFX(A,B,sel){
+  const ife=(s,E)=>s.par.iF+(s.Ee-E)/E*100;
+  const xr=range(950,1300,[A.E,B.E,A.Ee,B.Ee],0.12), yr=range(0,10,[A.i,B.i],0.15);
+  const f=frame({xr,yr,label:"외환시장 그래프",xl:"E",yl:"i, iᶠᵉ"});
+  const curve=s=>{ const pts=[]; for(let k=0;k<=60;k++){ const E=xr[0]+(xr[1]-xr[0])*k/60; pts.push([E,ife(s,E)]); } return pts; };
+  const iM=!same(A.i,B.i), cM=!same(A.Ee,B.Ee)||!same(A.par.iF,B.par.iF);
+  if(iM) f.path([[xr[0],A.i],[xr[1],A.i]],"ghost"); if(cM) f.path(curve(A),"ghost");
+  f.path([[xr[0],B.i],[xr[1],B.i]],"cur",css("fx")); f.path(curve(B),"cur",css("ife"));
+  f.tag(xr[1],B.i+(yr[1]-yr[0])*0.03,"i",css("fx"),"end");
+  const El=xr[1]-(xr[1]-xr[0])*0.03; f.tag(El,ife(B,El)-(yr[1]-yr[0])*0.05,"iᶠᵉ",css("ife"),"end");
+  const moved=iM||cM;
+  if(moved){ f.guide(A.E,A.i); f.point(A.E,A.i,"A","a",-16,-6); }
+  f.guide(B.E,B.i); f.point(B.E,B.i,moved?"B":"A","b");
+  marks(f,moved,"x",A.E,B.E,"E"); marks(f,moved,"y",A.i,B.i,"i");
+  $(sel).innerHTML=f.end();
+}
+
+/* ───── 방향 표시 ───── */
+function sgn(a,b){ const tol=1e-4*Math.max(1,Math.abs(a)); return b-a>tol?1:a-b>tol?-1:0; }
+function word(s,u,d){ return s>0?`<span class="up">▲ ${u||"상승"}</span>`:s<0?`<span class="down">▼ ${d||"하락"}</span>`:`<span class="flat">– 불변</span>`; }
+function tilesHTML(items){ $("#tiles").innerHTML=items.map(([k,v,n])=>`<div class="tile"><span class="k">${k}</span><span class="val">${v}</span>${n?`<span class="note">${n}</span>`:""}</div>`).join(""); }
+function tableHTML(rows){ $("#restab").innerHTML=`<thead><tr><th>변수</th><th>변화</th></tr></thead><tbody>`+rows.map(([n,a,b,u,d])=>`<tr><td>${n}</td><td>${word(sgn(a,b),u,d)}</td></tr>`).join("")+"</tbody>"; }
+const UP="↑",DN="↓";
+const mk=()=>{ const L=[]; return {L,add:(c,t,n)=>L.push(`<span class="chain">${c}</span>${t?`<span class="tag">${t}</span>`:""}${n?`<br>${n}`:""}`)}; };
+function mechHTML(L,empty){ $("#mech").innerHTML=(L.length?L:[`<span style="color:var(--muted)">${empty}</span>`]).map(x=>`<li>${x}</li>`).join(""); }
+function helpers(){ const d=dir(); return {ch:k=>!!d[k], up:k=>d[k]>0, a:k=>d[k]>0?UP:DN, na:k=>d[k]>0?DN:UP}; }
+function demandChains(add,lab){ const {ch,up,a,na}=helpers(); const mult=k=>(up(k)?"양":"음")+"의 승수과정";
+  if(ch("G")) add(`G${a("G")} ⇒ D${a("G")} ⇒ ${mult("G")} ⇒ 균형 Y${a("G")}`,lab(up("G")));
+  if(ch("T")) add(`T${a("T")} ⇒ (Y−T)${na("T")} ⇒ C${na("T")} ⇒ D${na("T")} ⇒ 균형 Y${na("T")}`,lab(!up("T")));
+  if(ch("Ca")) add(`C<sub>A</sub>${a("Ca")} ⇒ D${a("Ca")} ⇒ ${mult("Ca")} ⇒ 균형 Y${a("Ca")}`,lab(up("Ca")),"독립소비지출: 가처분소득과 무관한 소비수요 (재산효과, 기대 가처분소득 등)");
+  if(ch("Ia")) add(`I<sub>A</sub>${a("Ia")} ⇒ D${a("Ia")} ⇒ ${mult("Ia")} ⇒ 균형 Y${a("Ia")}`,lab(up("Ia")),"독립투자지출: 이자율과 무관한 투자수요 (기업의 경기전망 등)");
+  if(ch("Yf")) add(`Y<sub>f</sub>${a("Yf")} ⇒ EX${a("Yf")} ⇒ CA${a("Yf")} ⇒ D${a("Yf")} ⇒ 균형 Y${a("Yf")}`,lab(up("Yf")));
+  if(ch("dCA")) add(`경상수지의 외생적 ${up("dCA")?"증가":"감소"} ⇒ D${a("dCA")} ⇒ ${mult("dCA")} ⇒ 균형 Y${a("dCA")}`,lab(up("dCA")));
+  if(ch("Pf")) add(`P<sub>f</sub>${a("Pf")} ⇒ q = EP<sub>f</sub>/P${a("Pf")} ⇒ CA${a("Pf")} ⇒ D${a("Pf")} ⇒ 균형 Y${a("Pf")}`,lab(up("Pf")));
+}
+
+/* ───── 뷰별 렌더 ───── */
+function renderKeynes(){
+  const A=solveKeynes(ref), B=solveKeynes(p);
+  drawKeynes(A,B,"#k-keynes",true);
+  const s=sgn(A.Y,B.Y);
+  $("#k-adjust").innerHTML = s===0
+    ? `<p class="sub">총수요가 바뀌지 않으면 총생산도 그대로입니다.</p>`
+    : `<ul class="mech" style="padding-left:18px;margin:6px 0;display:flex;flex-direction:column;gap:8px">
+       <li>총수요곡선 D가 ${s>0?"위":"아래"}로 이동 ⇒ 원래 총생산 Y₀에서 Y ${s>0?"<":">"} D</li>
+       <li>${s>0?"음(−)":"양(+)"}의 비자발적 재고투자 <span class="chain">I<sub>u</sub> ${s>0?"< 0":"> 0"}</span> (계획하지 못한 재고의 ${s>0?"감소":"증가"})</li>
+       <li>기업들이 재고를 맞추려고 생산을 ${s>0?"늘림":"줄임"} ⇒ <span class="chain">총생산${s>0?UP:DN} ⇒ 총수요${s>0?UP:DN} ⇒ 총생산${s>0?UP:DN} …</span> (${s>0?"양":"음"}의 승수과정)</li>
+       <li>총생산이 변할 때 총수요는 덜 변하므로(기울기 0 &lt; c−m &lt; 1) <span class="chain">I<sub>u</sub> = 0</span>인 B에서 멈춤: 균형총생산 ${s>0?"증가":"감소"}</li></ul>`;
+  tilesHTML([["균형총생산 <v>Y</v>",word(s,"증가","감소"),"수량조정으로 결정"],["총수요 <v>D</v>",word(sgn(A.D,B.D),"증가","감소"),"균형에서 Y = D"],
+    ["소비수요 <v>C</v>",word(sgn(A.C,B.C),"증가","감소"),""],["투자수요 <v>I</v>",word(sgn(A.I,B.I),"증가","감소"),""],
+    ["경상수지 <v>CA</v>",word(sgn(A.CA,B.CA),"개선","악화"),""],["실질환율 <v>q</v>",word(sgn(A.q,B.q)),sgn(A.q,B.q)>0?"실질절하":sgn(A.q,B.q)<0?"실질절상":""]]);
+  tableHTML([["균형총생산 Y",A.Y,B.Y,"증가","감소"],["가처분소득 Y−T",A.Y-A.par.T,B.Y-B.par.T,"증가","감소"],["소비수요 C",A.C,B.C,"증가","감소"],["투자수요 I",A.I,B.I,"증가","감소"],
+    ["정부구매 G",A.G,B.G,"증가","감소"],["실질환율 q = EP_f/P",A.q,B.q],["경상수지 CA",A.CA,B.CA,"개선","악화"],["총수요 D",A.D,B.D,"증가","감소"]]);
+  const {L,add}=mk(); const {ch,up,a,na}=helpers();
+  demandChains(add,u=>"D곡선 "+(u?"상향":"하향")+" 이동");
+  if(ch("i")) add(`i${a("i")} ⇒ 투자지출의 기회비용${a("i")} ⇒ I${na("i")} ⇒ D${na("i")} ⇒ ${up("i")?"음":"양"}의 승수과정 ⇒ 균형 Y${na("i")}`,"D곡선 "+(up("i")?"하향":"상향")+" 이동","이자율 변화에 따른 균형총생산의 변화를 모은 것이 IS곡선입니다(우하향).");
+  if(ch("E")) add(`P̄, E${a("E")} ⇒ q = EP<sub>f</sub>/P${a("E")} ⇒ EX${a("E")}, IM${na("E")} ⇒ CA${a("E")} ⇒ D${a("E")} ⇒ 균형 Y${a("E")}`,"D곡선 "+(up("E")?"상향":"하향")+" 이동");
+  if(ch("P")) add(`P${a("P")} ⇒ q = EP<sub>f</sub>/P${na("P")} ⇒ CA${na("P")} ⇒ D${na("P")} ⇒ 균형 Y${na("P")}`,"D곡선 "+(up("P")?"하향":"상향")+" 이동");
+  mechHTML(L,"아직 바뀐 외생변수가 없습니다. 왼쪽에서 변수의 상승·하락을 고르거나 위의 예시를 눌러 보세요.");
+  $("#eqs").innerHTML=`<span class="c">총공급</span> 총생산 Y (단기에는 총수요에 맞춰 조정)<br><span class="c">총수요</span> D = C(Y−T) + I(i) + G + CA(EP<sub>f</sub>/P, Y−T)<br><span class="c">균형</span> Y₀ = C(Y₀−T) + I(i) + G + CA(EP<sub>f</sub>/P, Y₀−T)<br><span class="c">외생변수</span> i, E, P, P<sub>f</sub>, G, T · <span style="font-family:var(--f-body)">내생변수</span> Y₀`;
+}
+function renderMoney(){
+  const A=solveMoney(ref), B=solveMoney(p);
+  drawMoney(A,B,"#m-money",true);
+  const s=sgn(A.i,B.i), xd=B.Ld-B.par.h*A.i, ex=sgn(xd,B.Mr); // ex>0 : 초과공급
+  $("#m-adjust").innerHTML = s===0
+    ? `<p class="sub">실질화폐공급과 실질화폐수요가 바뀌지 않으면 균형이자율도 그대로입니다.</p>`
+    : `<ul style="padding-left:18px;margin:6px 0;display:flex;flex-direction:column;gap:8px">
+       <li>원래 이자율 i₀에서 화폐의 <b>${ex>0?"초과공급":"초과수요"}</b> ⇔ 다른 금융자산의 ${ex>0?"초과수요":"초과공급"}</li>
+       <li>${ex>0?"경제주체들이 불필요한 화폐로 금융자산을 매입하려 함, 즉 대부하려 함":"화폐를 더 마련하려고 금융자산을 발행·매각하려 함, 즉 차입하려 함"}</li>
+       <li><span class="chain">${ex>0?"대부 > 차입 ⇒ 차입자":"차입 > 대부 ⇒ 대부자"}의 협상력↑ ⇒ i${ex>0?DN:UP}</span></li>
+       <li>이자율이 ${ex>0?"하락":"상승"}하면서 실질화폐수요곡선 위를 따라 이동해 B에서 두 시장 모두 균형 회복</li></ul>`;
+  tilesHTML([["균형 명목이자율 <v>i</v>",word(s),""],["실질화폐공급 (<v>M</v>/<v>P</v>)<sup>s</sup>",word(sgn(A.Mr,B.Mr),"증가","감소"),"공급곡선 "+(sgn(A.Mr,B.Mr)>0?"우측":sgn(A.Mr,B.Mr)<0?"좌측":"고정")],
+    ["실질화폐수요 <v>L</v>(<v>i</v>,<v>Y</v>)",word(sgn(A.Ld,B.Ld),"증가","감소"),"수요곡선 "+(sgn(A.Ld,B.Ld)>0?"우측":sgn(A.Ld,B.Ld)<0?"좌측":"고정")],
+    ["원래 i₀에서",s===0?`<span class="flat">균형</span>`:ex>0?`<span class="down">초과공급</span>`:`<span class="up">초과수요</span>`,""]]);
+  tableHTML([["균형 명목이자율 i",A.i,B.i],["실질화폐공급 Mˢ/P",A.Mr,B.Mr,"증가","감소"],["균형 실질화폐보유량",A.Mr,B.Mr,"증가","감소"]]);
+  const {L,add}=mk(); const {ch,up,a,na}=helpers();
+  if(ch("M")) add(`P̄, M<sup>s</sup>${a("M")} ⇒ (M/P)<sup>s</sup>${a("M")} ⇒ 초과 화폐${up("M")?"공급 ⇒ 대부 > 차입 ⇒ 차입자":"수요 ⇒ 대부 < 차입 ⇒ 대부자"}의 협상력↑ ⇒ 균형 i${na("M")}`,(up("M")?"확장적":"긴축적")+" 통화정책: 공급곡선 "+(up("M")?"우측":"좌측")+" 이동",
+    up("M")?"이자율이 하락하면 총수요가 증가하기 때문에 ‘확장적’ 통화정책이라고 부릅니다.":"이자율이 상승하면 총수요가 감소하기 때문에 ‘긴축적’ 통화정책이라고 부릅니다.");
+  if(ch("P")) add(`P${a("P")} ⇒ (M/P)<sup>s</sup>${na("P")} ⇒ 초과 화폐${up("P")?"수요":"공급"} ⇒ 균형 i${a("P")}`,"공급곡선 "+(up("P")?"좌측":"우측")+" 이동");
+  if(ch("Y")) add(`Y${a("Y")} ⇒ (M/P)<sup>d</sup>${a("Y")} ⇒ 초과 화폐${up("Y")?"수요 ⇒ 대부 < 차입 ⇒ 대부자":"공급 ⇒ 대부 > 차입 ⇒ 차입자"}의 협상력↑ ⇒ 균형 i${a("Y")}`,"수요곡선 "+(up("Y")?"우측":"좌측")+" 이동","총소득과 균형이자율 사이의 이 양(+)의 관계를 모은 것이 LM곡선입니다(우상향).");
+  if(ch("dL")) add(`(M/P)<sup>d</sup> 외생적 ${up("dL")?"증가 ⇒ 초과 화폐수요 ⇒ 대부 < 차입 ⇒ 대부자":"감소 ⇒ 초과 화폐공급 ⇒ 대부 > 차입 ⇒ 차입자"}의 협상력↑ ⇒ 균형 i${a("dL")}`,"수요곡선 "+(up("dL")?"우측":"좌측")+" 이동",
+    up("dL")?"예: 금융시장 불안정성 증대로 위험이 적고 유동성이 높은 화폐에 대한 수요 증가":"예: 금융기법 혁신으로 다른 자산의 유동성이 높아져 화폐수요 감소");
+  mechHTML(L,"아직 바뀐 외생변수가 없습니다. 왼쪽에서 변수의 상승·하락을 고르거나 위의 예시를 눌러 보세요.");
+  $("#eqs").innerHTML=`<span class="c">실질화폐공급</span> (M/P)<sup>s</sup> = M<sup>s</sup>/P<br><span class="c">실질화폐수요</span> (M/P)<sup>d</sup> = L(i, Y) — i↑ ⇒ L↓, Y↑ ⇒ L↑<br><span class="c">단기균형</span> M<sup>s</sup>/P = L(i₀, Y)<br><span class="c">외생변수</span> M<sup>s</sup>, P, Y · <span style="font-family:var(--f-body)">내생변수</span> 균형 명목이자율 i₀`;
+}
+let sim0=[];
+function renderFull(){
+  $("#mode-note").textContent = mode==="perm"
+    ? "영구적: 경제주체들이 기대환율 Eᵉ를 통화공급에 정비례하여 조정합니다. 시간 경로에서 물가가 장기균형까지 조정됩니다."
+    : "일시적: 장기균형이 바뀌지 않으므로 기대(Eᵉ)는 그대로이고, 물가가 고정된 단기 분석만 합니다.";
+  const sim=simulate(); sim0=sim;
+  tView=Math.max(0,Math.min(NT-1,tView));
+  const A=solveFull(ref,ref.P,EeEff(ref)), B=sim[tView];
+  drawISLM(A,B,"#f-islm"); drawFX(A,B,"#f-fx"); drawKeynes(A,B,"#f-keynes",true);
+  const mA={...A,Ld:A.par.k*A.Y+A.par.dL}, mB={...B,Ld:B.par.k*B.Y+B.par.dL};
+  drawMoney(mA,mB,"#f-money",false);
+  const gap=sgn(B.par.Yn,B.Y), sE=sgn(A.E,B.E), sq=sgn(A.q,B.q);
+  tilesHTML([["총생산 <v>Y</v>",word(sgn(A.Y,B.Y),"증가","감소"),gap===0?"완전고용 (Y = Yₙ)":gap>0?"경기과열 (Y > Yₙ)":"불황 (Y < Yₙ)"],
+    ["이자율 <v>i</v>",word(sgn(A.i,B.i)),""],["명목환율 <v>E</v>",word(sE),sE>0?"원화 절하":sE<0?"원화 절상":""],
+    ["실질환율 <v>q</v>",word(sq),sq>0?"실질절하":sq<0?"실질절상":""],["경상수지 <v>CA</v>",word(sgn(A.CA,B.CA),"개선","악화"),""],
+    ["물가 <v>P</v>",word(sgn(A.P,B.P)),tView===T0?"단기: 고정":""]]);
+  tableHTML([["총생산·총소득 Y",A.Y,B.Y,"증가","감소"],["이자율 i",A.i,B.i],["명목환율 E",A.E,B.E],["기대환율 Eᵉ",A.Ee,B.Ee],["실질환율 q = EP_f/P",A.q,B.q],
+    ["실질화폐공급 M/P",A.Mr,B.Mr,"증가","감소"],["소비수요 C",A.C,B.C,"증가","감소"],["투자수요 I",A.I,B.I,"증가","감소"],["정부구매 G",A.G,B.G,"증가","감소"],
+    ["경상수지 CA",A.CA,B.CA,"개선","악화"],["총수요 D",A.D,B.D,"증가","감소"]]);
+  // 메커니즘
+  const {L,add}=mk(); const {ch,up,a,na}=helpers();
+  demandChains(add,u=>"IS "+(u?"우측":"좌측")+" 이동");
+  if(ch("G")) add(`Y${a("G")} ⇒ L(i,Y)${a("G")} ⇒ i${a("G")} ⇒ I${na("G")}, E${na("G")} ⇒ q${na("G")} ⇒ CA${na("G")}`,"구축효과(부분 구축)","시장 간 피드백: 생산물시장 ⇒ 화폐시장 ⇒ 외환시장");
+  if(ch("M")){
+    add(`P̄, M<sup>s</sup>${a("M")} ⇒ (M/P)<sup>s</sup>${a("M")} ⇒ 균형 i${na("M")}`,"LM "+(up("M")?"하향":"상향")+" 이동",
+      `i${na("M")} ⇒ I${a("M")}, E${a("M")} ⇒ q${a("M")} ⇒ CA${a("M")} ⇒ D${a("M")} ⇒ ${up("M")?"양":"음"}의 승수과정 ⇒ Y${a("M")} (통화정책의 전달 경로)`);
+    if(mode==="perm") add(`영구적 M<sup>s</sup>${a("M")} ⇒ E<sup>e</sup>${a("M")}(정비례) ⇒ i<sub>f</sub><sup>e</sup>${a("M")} ⇒ E${a("M")} ⇒ q${a("M")} ⇒ CA${a("M")} ⇒ 균형 Y${a("M")}`,"IS 이동 + iᶠᵉ곡선 이동",
+      `일시적일 때보다 이자율은 덜 움직이고, 총소득과 환율은 더 크게 움직입니다.`);
+  }
+  if(ch("dL")) add(`(M/P)<sup>d</sup> 외생적 ${up("dL")?"증가 ⇒ 초과 화폐수요":"감소 ⇒ 초과 화폐공급"} ⇒ 균형 i${a("dL")}`,"LM "+(up("dL")?"상향":"하향")+" 이동");
+  if(ch("P")) add(`P${a("P")} ⇒ (M/P)<sup>s</sup>${na("P")} ⇒ i${a("P")}  그리고  P${a("P")} ⇒ q${na("P")} ⇒ CA${na("P")} ⇒ Y${na("P")}`,"LM "+(up("P")?"상향":"하향")+", IS "+(up("P")?"좌측":"우측")+" 이동");
+  if(ch("iF")) add(`i<sub>f</sub>${a("iF")} ⇒ i<sub>f</sub><sup>e</sup>${a("iF")} ⇒ E${a("iF")} ⇒ q${a("iF")} ⇒ CA${a("iF")} ⇒ D${a("iF")} ⇒ 균형 Y${a("iF")}`,"IS "+(up("iF")?"우측":"좌측")+" 이동 + iᶠᵉ곡선 이동");
+  if(ch("Ee")) add(`E<sup>e</sup>${a("Ee")} ⇒ i<sub>f</sub><sup>e</sup>${a("Ee")} ⇒ E${a("Ee")} ⇒ q${a("Ee")} ⇒ CA${a("Ee")} ⇒ D${a("Ee")} ⇒ 균형 Y${a("Ee")}`,"IS "+(up("Ee")?"우측":"좌측")+" 이동 + iᶠᵉ곡선 이동");
+  if(tView>T0 && mode==="perm" && L.length){
+    const g=sgn(p.Yn, sim[T0].Y);
+    if(g!==0) add(`Y ${g>0?">":"<"} Yₙ ⇒ 물가 P${g>0?UP:DN} ⇒ (M/P)<sup>s</sup>${g>0?DN:UP} ⇒ i${g>0?UP:DN} (LM ${g>0?"상향":"하향"})  그리고  P${g>0?UP:DN}, E${g>0?DN:UP} ⇒ q${g>0?DN:UP} ⇒ CA${g>0?DN:UP} (IS ${g>0?"좌측":"우측"})`,"장기균형으로의 조정",
+      ch("M")&&Object.entries(dir()).every(([k,d])=>k==="M"||!d) ? "장기에는 i와 Y가 원래 수준을 회복하고, P와 E만 통화공급에 정비례하여 변합니다(화폐중립성)." : "물가 조정은 Y가 잠재총생산 Yₙ에 도달할 때까지 계속됩니다.");
+  }
+  if(tView>=TEMP_END && mode==="temp" && L.length) add(`일시적 변화 종료 ⇒ 외생변수가 원래 값으로 복귀`,"","기대가 바뀌지 않았으므로 경제는 처음 균형 A로 돌아갑니다.");
+  if(L.length) L.push(`<b>결과</b> · 이자율 ${["하락","불변","상승"][sgn(A.i,B.i)+1]}, 명목환율 ${["하락(원화 절상)","불변","상승(원화 절하)"][sE+1]}, 총생산 ${["감소","불변","증가"][sgn(A.Y,B.Y)+1]}, 경상수지 ${["악화","불변","개선"][sgn(A.CA,B.CA)+1]}`);
+  mechHTML(L,"아직 바뀐 외생변수가 없습니다. 왼쪽에서 변수의 상승·하락을 고르거나 위의 예시를 눌러 보세요.");
+  drawPaths(sim,tView);
+  $("#tslider").value=tView;
+  $("#tout").textContent = tView<T0?"변화 전": tView===T0?"단기균형":(mode==="perm"?(tView===NT-1?"장기균형":"물가 조정 중"):(tView<TEMP_END?"변화 유지":"변화 종료"));
+  $("#time-sub").textContent = mode==="perm"
+    ? "t₀에 변화가 일어납니다. 그 순간 물가는 고정되어 있다가, 총생산이 잠재총생산과 다르면 서서히 조정됩니다. 슬라이더를 움직이면 위 그래프가 그 시점의 균형을 보여줍니다."
+    : "t₀부터 잠시 변화가 유지된 뒤 원래 값으로 돌아갑니다.";
+  $("#eqs").innerHTML=`<span class="c">생산물시장</span> Y = C(Y−T) + I(i) + G + CA(EP<sub>f</sub>/P, Y−T)<br><span class="c">화폐시장</span> M<sup>s</sup>/P = L(i, Y)<br><span class="c">외환시장</span> i = i<sub>f</sub> + (E<sup>e</sup> − E)/E<br><span class="c">외생변수</span> T, G, P, P<sub>f</sub>, i<sub>f</sub>, E<sup>e</sup>, M<sup>s</sup> · <span style="font-family:var(--f-body)">내생변수</span> Y, i, E`;
+}
+function drawPaths(sim,t){
+  const series=[["M","통화공급 Mˢ"],["i","명목이자율 i"],["P","물가 P"],["E","명목환율 E"],["Y","총생산 Y"]];
+  $("#paths").innerHTML=series.map(([k,name])=>{
+    const vals=sim.map(s=>k==="M"?s.par.M:s[k]);
+    let lo=Math.min(...vals), hi=Math.max(...vals);
+    if(hi-lo<1e-6*Math.max(1,Math.abs(lo))){ const c=lo; lo=c-Math.max(1,Math.abs(c)*0.05); hi=c+Math.max(1,Math.abs(c)*0.05); }
+    const pad=(hi-lo)*0.18; lo-=pad; hi+=pad;
+    const f=frame({W:260,H:140,ml:30,mr:8,mb:22,xr:[0,NT-1],yr:[lo,hi],label:name,xl:"t"});
+    f.path(sim.map((s,j)=>[j,vals[j]]),"cur",css(k==="i"?"fx":k==="E"?"ife":k==="Y"?"is":k==="P"?"fe":"lm"),'style="stroke-width:2"');
+    if(k==="Y") f.path([[0,p.Yn],[NT-1,p.Yn]],"guide");
+    f.raw(`<line x1="${f.X(T0)}" x2="${f.X(T0)}" y1="${f.m.t}" y2="${f.H-f.m.b}" style="stroke:var(--muted);stroke-width:.8;stroke-dasharray:2 2"/>`);
+    f.xmark(T0,"t₀");
+    f.raw(`<line x1="${f.X(t)}" x2="${f.X(t)}" y1="${f.m.t}" y2="${f.H-f.m.b}" style="stroke:var(--accent);stroke-width:1.6"/><circle cx="${f.X(t)}" cy="${f.Y(vals[t])}" r="3.5" style="fill:var(--accent)"/>`);
+    return `<figure><figcaption>${name}</figcaption>${f.end()}</figure>`;
+  }).join("");
+  const s0=sim[T0-1], s1=sim[T0];
+  if(!Object.values(dir()).some(Boolean)){ $("#ovs").innerHTML=`<span style="color:var(--muted)">외생변수를 바꾸면 시간에 따른 변화가 그려집니다.</span>`; return; }
+  if(mode==="perm"){
+    const Ps=longRunP(p,EeEff(p)), Lr=solveFull(p,Ps,EeEff(p));
+    const dS=sgn(s0.E,s1.E), dL=sgn(s0.E,Lr.E), over=dS!==0 && dS===dL && sgn(Lr.E,s1.E)===dS, iw=["하락","불변","상승"];
+    let txt=`이자율: 단기 ${iw[sgn(s0.i,s1.i)+1]} → 장기 ${sgn(s0.i,Lr.i)===0?"원래 수준 회복":iw[sgn(s0.i,Lr.i)+1]} · 물가: 단기 고정 → 장기 ${iw[sgn(s0.P,Ps)+1]} · 총생산: 단기 ${["감소","불변","증가"][sgn(s0.Y,s1.Y)+1]} → 장기 Yₙ`;
+    txt+= over ? `<br>명목환율: <span class="chain">${dS>0?"E₀ < E₂ < E₁":"E₁ < E₂ < E₀"}</span> 환율 오버슈팅. 즉각적 변화(E₀→E₁)가 장기 변화(E₀→E₂)보다 큽니다. 원인은 단기의 물가 경직성입니다.`
+               : `<br>명목환율: 단기 ${iw[dS+1]} → 장기 ${iw[dL+1]}`;
+    $("#ovs").innerHTML=txt;
+  } else $("#ovs").innerHTML=`일시적 변화는 기대(<v>E<sup>e</sup></v>)를 바꾸지 않으므로 단기 분석만 필요합니다. 물가는 고정되어 있고, 변화가 끝나면 처음 균형으로 돌아갑니다. 물가 조정과 오버슈팅을 보려면 <b>영구적 변화</b>를 고르세요.`;
+}
+
+function render(){
+  syncControls();
+  if(view==="keynes") renderKeynes(); else if(view==="money") renderMoney(); else renderFull();
+}
+function setView(v){ stop(); view=v; if(v!=="full") mode="temp"; applyDirs(); tView=T0; buildControls(); render(); }
+
+/* ───── 이벤트 ───── */
+document.querySelector(".tabs").addEventListener("click",e=>{ const b=e.target.closest("button[data-view]"); if(b) setView(b.dataset.view); });
+$("#groups").addEventListener("click",e=>{ const b=e.target.closest("button[data-k]"); if(!b) return; stop(); dir()[b.dataset.k]=+b.dataset.d; applyDirs(); tView=T0; render(); });
+$("#presets").addEventListener("click",e=>{ const b=e.target.closest("button[data-pre]"); if(!b) return; stop();
+  const pr=VIEWS[view].presets[+b.dataset.pre]; Object.keys(dir()).forEach(k=>dir()[k]=0); Object.assign(dir(),pr[1]); if(pr[2]) mode=pr[2]; applyDirs(); tView=T0; render(); });
+$("#mode-temp").addEventListener("click",()=>{ stop(); mode="temp"; tView=T0; render(); });
+$("#mode-perm").addEventListener("click",()=>{ stop(); mode="perm"; tView=T0; render(); });
+$("#btn-reset").addEventListener("click",()=>{ stop(); Object.keys(dir()).forEach(k=>dir()[k]=0); applyDirs(); tView=T0; render(); });
+$("#tslider").addEventListener("input",e=>{ stop(); tView=+e.target.value; render(); });
+let timer=null;
+function stop(){ if(timer){ clearInterval(timer); timer=null; $("#btn-play").textContent="▶ 조정 과정 재생"; } }
+$("#btn-play").addEventListener("click",()=>{
+  if(timer){ stop(); return; }
+  if(window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches){ tView=NT-1; render(); return; }
+  tView=0; render(); $("#btn-play").textContent="■ 멈춤";
+  timer=setInterval(()=>{ tView++; if(tView>=NT-1){ tView=NT-1; render(); stop(); return; } render(); },140);
+});
+buildControls(); render();
+})();
+</script>
